@@ -16,13 +16,15 @@ import {
 import {
   BriefcaseIcon,
   LayoutDashboardIcon,
+  KanbanIcon,
   CheckSquareIcon,
   CalendarIcon,
   FolderIcon,
   UsersIcon,
   Settings2Icon,
-  CircleHelpIcon,
 } from "lucide-react"
+
+import { usePathname } from "next/navigation"
 
 const data = {
   user: {
@@ -32,47 +34,58 @@ const data = {
   },
   navMain: [
     {
-      title: "Dashboard",
+      title: "Analytics",
       url: "/dashboard",
       icon: <LayoutDashboardIcon />,
-      isActive: true,
+    },
+    {
+      title: "Pipeline board view",
+      url: "/dashboard/board",
+      icon: <KanbanIcon />,
     },
     {
       title: "Tasks",
-      url: "#",
+      url: "/tasks",
       icon: <CheckSquareIcon />,
     },
     {
       title: "Calendar",
-      url: "#",
+      url: "/calendar",
       icon: <CalendarIcon />,
     },
     {
       title: "Files",
-      url: "#",
+      url: "/files",
       icon: <FolderIcon />,
     },
     {
       title: "Team",
-      url: "#",
+      url: "/team",
       icon: <UsersIcon />,
     },
   ],
   navSecondary: [
     {
       title: "Settings",
-      url: "#",
+      url: "/settings",
       icon: <Settings2Icon />,
-    },
-    {
-      title: "Help & Support",
-      url: "#",
-      icon: <CircleHelpIcon />,
     },
   ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const pathname = usePathname()
+
+  const navMainWithActive = data.navMain.map((item) => ({
+    ...item,
+    isActive: pathname === item.url || (item.url !== "/dashboard" && pathname.startsWith(item.url)),
+  }))
+
+  const navSecondaryWithActive = data.navSecondary.map((item) => ({
+    ...item,
+    isActive: pathname === item.url,
+  }))
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader className="border-b border-sidebar-border">
@@ -83,7 +96,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               className="data-[slot=sidebar-menu-button]:p-2!"
             >
               <a href="/dashboard" className="flex items-center gap-2.5">
-                <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm">
+                <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-sm text-primary-foreground!">
                   <BriefcaseIcon className="size-4!" />
                 </div>
                 <span className="text-base font-semibold tracking-tight">
@@ -96,8 +109,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
 
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <NavMain items={navMainWithActive} />
+        <NavSecondary items={navSecondaryWithActive} className="mt-auto" />
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border">
