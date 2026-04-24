@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useMemo } from "react"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent } from "@/components/ui/card"
@@ -41,10 +42,10 @@ export function KanbanCard({ task, isOverlay }: KanbanCardProps) {
         isDragging,
     } = useSortable({
         id: task.id,
-        data: {
+        data: useMemo(() => ({
             type: "Task",
             task,
-        },
+        }), [task]),
         disabled: isOverlay,
     })
 

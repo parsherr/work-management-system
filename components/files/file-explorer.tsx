@@ -103,7 +103,7 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
         }
     }
 
-    const handleLassoChange = (rect: { top: number; left: number; width: number; height: number } | null) => {
+    const handleLassoChange = React.useCallback((rect: { top: number; left: number; width: number; height: number } | null) => {
         if (!rect) return
 
         const newSelected = new Set<string>()
@@ -135,15 +135,39 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
             }
         })
 
-        setSelectedPaths(newSelected)
+        setSelectedPaths(prev => {
+            if (prev.size === newSelected.size && Array.from(newSelected).every(p => prev.has(p))) {
+                return prev
+            }
+            return newSelected
+        })
+
         if (newSelected.size > 0) {
             const firstPath = Array.from(newSelected)[0]
             const firstItem = items.find(i => i.path === firstPath)
-            if (firstItem) setActiveItem(firstItem)
+            if (firstItem) {
+                setActiveItem(prev => (prev?.path === firstItem.path ? prev : firstItem))
+            }
         }
-    }
+    }, [items])
+
+    const displayItems = React.useMemo(() => {
+        if (currentPath === "") return items
+        const parentPath = currentPath.includes("/")
+            ? currentPath.split("/").slice(0, -1).join("/")
+            : ""
+        const parentItem: FileItem = {
+            name: "..",
+            path: parentPath,
+            isDirectory: true,
+            size: 0,
+            updatedAt: new Date().toISOString(),
+        }
+        return [parentItem, ...items]
+    }, [items, currentPath])
 
     const handleSelect = (item: FileItem, isMulti = false) => {
+        if (item.name === "..") return
         if (isMulti) {
             const newSelected = new Set(selectedPaths)
             if (newSelected.has(item.path)) newSelected.delete(item.path)
@@ -157,6 +181,10 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
 
     // --- Drag and Drop Logic (Native) ---
     const handleDragStart = (e: React.DragEvent, item: FileItem) => {
+        if (item.name === "..") {
+            e.preventDefault()
+            return
+        }
         e.dataTransfer.setData("application/workos-file", item.path)
         e.dataTransfer.effectAllowed = "move"
 
@@ -167,12 +195,6 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
         document.body.appendChild(ghost)
         e.dataTransfer.setDragImage(ghost, 0, 0)
         setTimeout(() => document.body.removeChild(ghost), 0)
-    }
-
-    const handleDragOver = (e: React.DragEvent, item: FileItem) => {
-        if (item.isDirectory) {
-            e.preventDefault()
-        }
     }
 
     const handleDrop = async (e: React.DragEvent, targetItem: FileItem) => {
@@ -186,12 +208,15 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
             ? Array.from(selectedPaths)
             : [sourcePath]
 
+        // Prevent moving an item into its current parent (if target is ..)
+        // But targetItem.path is already the parent path, so moveItem will handle it or fail if source equals destination
+        
         const movePromises = itemsToMove.map(path => moveItem(path, targetItem.path))
         const results = await Promise.all(movePromises)
 
         const successCount = results.filter(r => r.success).length
         if (successCount > 0) {
-            toast.success(`${successCount} item(s) moved to ${targetItem.name}`)
+            toast.success(`${successCount} item(s) moved to ${targetItem.name === ".." ? "parent directory" : targetItem.name}`)
             router.refresh()
         }
     }
@@ -223,7 +248,7 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {items.length === 0 && (
+                                {displayItems.length === 0 && (
                                     <TableRow>
                                         <TableCell colSpan={4} className="h-64 text-center text-muted-foreground">
                                             <div className="flex flex-col items-center gap-2">
@@ -233,72 +258,100 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
                                         </TableCell>
                                     </TableRow>
                                 )}
-                                {items.map((item) => {
+                                {displayItems.map((item) => {
                                     const isSelected = selectedPaths.has(item.path)
+                                    const isParentDir = item.name === ".."
+                                    
+                                    const tableRow = (
+                                        <TableRow
+                                            key={item.path + item.name}
+                                            data-file-path={item.path}
+                                            data-drag-handle={!isParentDir ? "true" : undefined}
+                                            draggable={!isParentDir}
+                                            onDragStart={(e) => handleDragStart(e, item)}
+                                            onDragOver={(e) => {
+                                                if (item.isDirectory) e.preventDefault()
+                                            }}
+                                            onDragEnter={(e) => {
+                                                if (item.isDirectory) {
+                                                    e.preventDefault()
+                                                    e.currentTarget.setAttribute("data-drop-target", "true")
+                                                }
+                                            }}
+                                            onDragLeave={(e) => {
+                                                e.currentTarget.removeAttribute("data-drop-target")
+                                            }}
+                                            onDrop={(e) => {
+                                                e.currentTarget.removeAttribute("data-drop-target")
+                                                handleDrop(e, item)
+                                            }}
+                                            className={cn(
+                                                "group cursor-pointer transition-colors border-b border-border/50 last:border-0",
+                                                isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/30",
+                                                "data-[drop-target=true]:bg-primary/20",
+                                                isParentDir && "text-muted-foreground/60"
+                                            )}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleSelect(item, e.shiftKey || e.metaKey || e.ctrlKey)
+                                            }}
+                                            onDoubleClick={(e) => {
+                                                e.stopPropagation()
+                                                handleItemDoubleClick(item)
+                                            }}
+                                        >
+                                            <TableCell className="font-medium py-3 px-6">
+                                                <div className="flex items-center gap-3">
+                                                    {getFileIcon(item)}
+                                                    <span className="truncate text-sm font-mono">{item.name}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground text-xs font-sans">
+                                                {item.isDirectory ? "--" : formatSize(item.size)}
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground text-xs font-sans">
+                                                {isParentDir ? "--" : format(new Date(item.updatedAt), "MMM d, yyyy")}
+                                            </TableCell>
+                                            <TableCell onClick={(e) => e.stopPropagation()} className="py-0 px-6">
+                                                {!isParentDir && (
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover:opacity-100">
+                                                                <MoreVerticalIcon className="size-4" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="end" className="w-40">
+                                                            <DropdownMenuItem
+                                                                className="gap-2"
+                                                                onClick={() => handleItemDoubleClick(item)}
+                                                            >
+                                                                <ExternalLinkIcon className="size-3.5" />
+                                                                Open
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem className="gap-2">
+                                                                <PencilIcon className="size-3.5" />
+                                                                Rename
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                className="gap-2 text-destructive focus:text-destructive"
+                                                                onClick={() => handleDelete(item.path)}
+                                                            >
+                                                                <Trash2Icon className="size-3.5" />
+                                                                Delete
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                )}
+                                            </TableCell>
+                                        </TableRow>
+                                    )
+
+                                    if (isParentDir) return tableRow
+
                                     return (
                                         <ContextMenu key={item.path}>
                                             <ContextMenuTrigger asChild>
-                                                <TableRow
-                                                    data-file-path={item.path}
-                                                    draggable={true}
-                                                    onDragStart={(e) => handleDragStart(e, item)}
-                                                    onDragOver={(e) => handleDragOver(e, item)}
-                                                    onDrop={(e) => handleDrop(e, item)}
-                                                    className={cn(
-                                                        "group cursor-pointer transition-colors border-b border-border/50 last:border-0",
-                                                        isSelected ? "bg-primary/5 hover:bg-primary/10" : "hover:bg-muted/30"
-                                                    )}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleSelect(item, e.shiftKey || e.metaKey || e.ctrlKey)
-                                                    }}
-                                                    onDoubleClick={(e) => {
-                                                        e.stopPropagation()
-                                                        handleItemDoubleClick(item)
-                                                    }}
-                                                >
-                                                    <TableCell className="font-medium py-3 px-6">
-                                                        <div className="flex items-center gap-3">
-                                                            {getFileIcon(item)}
-                                                            <span className="truncate text-sm">{item.name}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground text-xs font-sans">
-                                                        {item.isDirectory ? "--" : formatSize(item.size)}
-                                                    </TableCell>
-                                                    <TableCell className="text-muted-foreground text-xs font-sans">
-                                                        {format(new Date(item.updatedAt), "MMM d, yyyy")}
-                                                    </TableCell>
-                                                    <TableCell onClick={(e) => e.stopPropagation()} className="py-0 px-6">
-                                                        <DropdownMenu>
-                                                            <DropdownMenuTrigger asChild>
-                                                                <Button variant="ghost" size="icon" className="size-8 opacity-0 group-hover:opacity-100">
-                                                                    <MoreVerticalIcon className="size-4" />
-                                                                </Button>
-                                                            </DropdownMenuTrigger>
-                                                            <DropdownMenuContent align="end" className="w-40">
-                                                                <DropdownMenuItem
-                                                                    className="gap-2"
-                                                                    onClick={() => handleItemDoubleClick(item)}
-                                                                >
-                                                                    <ExternalLinkIcon className="size-3.5" />
-                                                                    Open
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem className="gap-2">
-                                                                    <PencilIcon className="size-3.5" />
-                                                                    Rename
-                                                                </DropdownMenuItem>
-                                                                <DropdownMenuItem
-                                                                    className="gap-2 text-destructive focus:text-destructive"
-                                                                    onClick={() => handleDelete(item.path)}
-                                                                >
-                                                                    <Trash2Icon className="size-3.5" />
-                                                                    Delete
-                                                                </DropdownMenuItem>
-                                                            </DropdownMenuContent>
-                                                        </DropdownMenu>
-                                                    </TableCell>
-                                                </TableRow>
+                                                {tableRow}
                                             </ContextMenuTrigger>
                                             <ContextMenuContent className="w-48">
                                                 <ContextMenuItem className="gap-2" onClick={() => handleItemDoubleClick(item)}>
@@ -319,7 +372,7 @@ export function FileExplorer({ items, currentPath, viewMode, showPreview, onTogg
                     </div>
                 ) : (
                     <FileGrid
-                        items={items}
+                        items={displayItems}
                         selectedPaths={selectedPaths}
                         onSelect={handleSelect}
                         onNavigate={(p) => router.push(`/files/${p}`)}

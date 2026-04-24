@@ -98,46 +98,72 @@ export function FileGrid({ items, selectedPaths, onSelect, onNavigate }: FileGri
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-4">
             {items.map((item) => {
                 const isSelected = selectedPaths.has(item.path)
+                const isParentDir = item.name === ".."
+
+                const gridItem = (
+                    <div
+                        key={item.path + item.name}
+                        data-file-path={item.path}
+                        data-drag-handle={!isParentDir ? "true" : undefined}
+                        draggable={!isParentDir}
+                        onDragStart={(e) => handleDragStart(e, item)}
+                        onDragOver={(e) => {
+                            if (item.isDirectory) e.preventDefault()
+                        }}
+                        onDragEnter={(e) => {
+                            if (item.isDirectory) {
+                                e.preventDefault()
+                                e.currentTarget.setAttribute("data-drop-target", "true")
+                            }
+                        }}
+                        onDragLeave={(e) => {
+                            e.currentTarget.removeAttribute("data-drop-target")
+                        }}
+                        onDrop={(e) => {
+                            e.currentTarget.removeAttribute("data-drop-target")
+                            handleDrop(e, item)
+                        }}
+                        className={cn(
+                            "group flex flex-col items-center gap-2 p-3 rounded-xl transition-all cursor-pointer select-none border border-transparent",
+                            isSelected
+                                ? "bg-primary/10 border-primary/20"
+                                : "hover:bg-muted/50",
+                            // Drop target styling
+                            "data-[drop-target=true]:bg-primary/20 data-[drop-target=true]:border-primary/50",
+                            isParentDir && "opacity-60"
+                        )}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onSelect(item, e.shiftKey || e.metaKey || e.ctrlKey)
+                        }}
+                        onDoubleClick={(e) => {
+                            e.stopPropagation()
+                            if (item.isDirectory) {
+                                onNavigate(item.path)
+                            } else {
+                                window.open(`/api/files/raw?path=${item.path}`, '_blank')
+                            }
+                        }}
+                    >
+                        <div className="relative">
+                            {getFileIcon(item)}
+                        </div>
+                        <span className={cn(
+                            "text-xs font-medium text-center truncate w-full px-1",
+                            isSelected ? "text-primary" : "text-foreground/80",
+                            isParentDir && "font-mono"
+                        )}>
+                            {item.name}
+                        </span>
+                    </div>
+                )
+
+                if (isParentDir) return gridItem
+
                 return (
                     <ContextMenu key={item.path}>
                         <ContextMenuTrigger asChild>
-                            <div
-                                data-file-path={item.path}
-                                draggable={true}
-                                onDragStart={(e) => handleDragStart(e, item)}
-                                onDragOver={(e) => handleDragOver(e, item)}
-                                onDrop={(e) => handleDrop(e, item)}
-                                className={cn(
-                                    "group flex flex-col items-center gap-2 p-3 rounded-xl transition-all cursor-pointer select-none border border-transparent",
-                                    isSelected
-                                        ? "bg-primary/10 border-primary/20"
-                                        : "hover:bg-muted/50",
-                                    // Drop target styling
-                                    "drop-target:bg-blue-500/10 drop-target:border-blue-500/30"
-                                )}
-                                onClick={(e) => {
-                                    e.stopPropagation()
-                                    onSelect(item, e.shiftKey || e.metaKey || e.ctrlKey)
-                                }}
-                                onDoubleClick={(e) => {
-                                    e.stopPropagation()
-                                    if (item.isDirectory) {
-                                        onNavigate(item.path)
-                                    } else {
-                                        window.open(`/api/files/raw?path=${item.path}`, '_blank')
-                                    }
-                                }}
-                            >
-                                <div className="relative">
-                                    {getFileIcon(item)}
-                                </div>
-                                <span className={cn(
-                                    "text-xs font-medium text-center truncate w-full px-1",
-                                    isSelected ? "text-primary" : "text-foreground/80"
-                                )}>
-                                    {item.name}
-                                </span>
-                            </div>
+                            {gridItem}
                         </ContextMenuTrigger>
                         <ContextMenuContent className="w-48">
                             <ContextMenuItem className="gap-2" onClick={() => item.isDirectory ? onNavigate(item.path) : window.open(`/api/files/raw?path=${item.path}`, '_blank')}>

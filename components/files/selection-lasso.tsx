@@ -17,8 +17,8 @@ export function SelectionLasso({ containerRef, onSelectionChange }: SelectionLas
         if (e.button !== 0) return
 
         const target = e.target as HTMLElement
-        // Prevent starting lasso if clicking an interactive element (button, link, context menu item)
-        if (target.closest('button, a, [role="menuitem"], [data-radix-collection-item]')) return
+        // Prevent starting lasso if clicking an interactive element or a drag handle
+        if (target.closest('button, a, [role="menuitem"], [data-radix-collection-item], [data-drag-handle]')) return
 
         const container = containerRef.current
         if (!container) return
@@ -44,7 +44,22 @@ export function SelectionLasso({ containerRef, onSelectionChange }: SelectionLas
         setCurrentPos({ x, y })
     }
 
-    const handleMouseUp = () => {
+    const handleMouseUp = (e: MouseEvent) => {
+        if (startPos && currentPos) {
+            const dx = Math.abs(currentPos.x - startPos.x)
+            const dy = Math.abs(currentPos.y - startPos.y)
+            if (dx > 5 || dy > 5) {
+                // Was dragging - prevent the subsequent click event from clearing the selection
+                const preventClick = (clickEvent: MouseEvent) => {
+                    clickEvent.stopPropagation()
+                    clickEvent.preventDefault()
+                    window.removeEventListener('click', preventClick, true)
+                }
+                window.addEventListener('click', preventClick, true)
+                setTimeout(() => window.removeEventListener('click', preventClick, true), 50)
+            }
+        }
+        
         setStartPos(null)
         setCurrentPos(null)
         onSelectionChange(null)
@@ -63,7 +78,7 @@ export function SelectionLasso({ containerRef, onSelectionChange }: SelectionLas
             window.removeEventListener("mousemove", handleMouseMove)
             window.removeEventListener("mouseup", handleMouseUp)
         }
-    }, [containerRef, startPos])
+    }, [containerRef, startPos, currentPos])
 
     React.useEffect(() => {
         if (startPos && currentPos) {

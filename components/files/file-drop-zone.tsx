@@ -14,6 +14,7 @@ interface FileDropZoneProps {
 
 export function FileDropZone({ children, currentPath }: FileDropZoneProps) {
     const router = useRouter()
+    const dragCounter = React.useRef(0)
     const [isDragging, setIsDragging] = React.useState(false)
 
     const handleUpload = async (files: FileList | File[]) => {
@@ -37,18 +38,42 @@ export function FileDropZone({ children, currentPath }: FileDropZoneProps) {
         }
     }
 
+    const onDragEnter = (e: React.DragEvent) => {
+        e.preventDefault()
+        
+        // Only show upload overlay for external files
+        const isFile = e.dataTransfer.types.includes("Files")
+        if (!isFile) return
+
+        dragCounter.current++
+        if (dragCounter.current === 1) {
+            setIsDragging(true)
+        }
+    }
+
     const onDragOver = (e: React.DragEvent) => {
         e.preventDefault()
-        setIsDragging(true)
+        // Ensure dropEffect is set correctly for files
+        if (e.dataTransfer.types.includes("Files")) {
+            e.dataTransfer.dropEffect = "copy"
+        }
     }
 
     const onDragLeave = (e: React.DragEvent) => {
         e.preventDefault()
-        setIsDragging(false)
+        
+        const isFile = e.dataTransfer.types.includes("Files")
+        if (!isFile) return
+
+        dragCounter.current--
+        if (dragCounter.current === 0) {
+            setIsDragging(false)
+        }
     }
 
     const onDrop = async (e: React.DragEvent) => {
         e.preventDefault()
+        dragCounter.current = 0
         setIsDragging(false)
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
@@ -75,6 +100,7 @@ export function FileDropZone({ children, currentPath }: FileDropZoneProps) {
     return (
         <div
             className="relative flex-1 flex flex-col"
+            onDragEnter={onDragEnter}
             onDragOver={onDragOver}
             onDragLeave={onDragLeave}
             onDrop={onDrop}

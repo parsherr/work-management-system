@@ -26,7 +26,7 @@ export function FileClientPage({ items, currentPath }: FileClientPageProps) {
             onTogglePreview={() => setShowPreview(!showPreview)}
         >
             <FileDropZone currentPath={currentPath}>
-                <div className="flex flex-col h-full">
+                <div className="flex flex-col flex-1">
                     <div className="px-6 py-4 flex items-center justify-between bg-muted/10">
                         <FileBreadcrumbs currentPath={currentPath} />
                         <FileToolbar currentPath={currentPath} />

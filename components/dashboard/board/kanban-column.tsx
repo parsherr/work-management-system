@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useMemo } from "react"
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { KanbanCard, Task } from "./kanban-card"
 import { Button } from "@/components/ui/button"
@@ -18,12 +19,14 @@ interface KanbanColumnProps {
 }
 
 export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
+    const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks])
+
     const { setNodeRef } = useSortable({
         id: column.id,
-        data: {
+        data: useMemo(() => ({
             type: "Column",
             column,
-        },
+        }), [column]),
     })
 
     return (
@@ -52,7 +55,7 @@ export function KanbanColumn({ column, tasks }: KanbanColumnProps) {
 
             {/* Content */}
             <div className="flex flex-1 flex-col gap-3 overflow-y-auto min-h-[200px] scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent pr-1">
-                <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+                <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
                     {tasks.map((task) => (
                         <KanbanCard key={task.id} task={task} />
                     ))}

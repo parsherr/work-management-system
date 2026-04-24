@@ -71,10 +71,19 @@ const initialTasks: Task[] = [
 ]
 
 export function KanbanBoard() {
+    const id = React.useId()
     const [columns] = useState<Column[]>(defaultColumns)
     const columnsId = useMemo(() => columns.map((col) => col.id), [columns])
     const [tasks, setTasks] = useState<Task[]>(initialTasks)
     const [activeTask, setActiveTask] = useState<Task | null>(null)
+
+    const tasksByColumn = useMemo(() => {
+        const groups: Record<string, Task[]> = {}
+        columns.forEach((col) => {
+            groups[col.id] = tasks.filter((t) => t.columnId === col.id)
+        })
+        return groups
+    }, [tasks, columns])
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
@@ -129,6 +138,11 @@ export function KanbanBoard() {
         if (isActiveATask && isOverAColumn) {
             setTasks((tasks) => {
                 const activeIndex = tasks.findIndex((t) => t.id === activeId)
+                
+                if (tasks[activeIndex].columnId === overId) {
+                    return tasks
+                }
+
                 const newTasks = [...tasks]
                 newTasks[activeIndex] = {
                     ...newTasks[activeIndex],
@@ -156,6 +170,11 @@ export function KanbanBoard() {
         if (isActiveATask && isOverAColumn) {
             setTasks((tasks) => {
                 const activeIndex = tasks.findIndex((t) => t.id === activeId)
+                
+                if (tasks[activeIndex].columnId === overId) {
+                    return tasks
+                }
+
                 const newTasks = [...tasks]
                 newTasks[activeIndex] = {
                     ...newTasks[activeIndex],
@@ -178,6 +197,7 @@ export function KanbanBoard() {
 
     return (
         <DndContext
+            id={id}
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={onDragStart}
@@ -190,7 +210,7 @@ export function KanbanBoard() {
                         <KanbanColumn
                             key={col.id}
                             column={col}
-                            tasks={tasks.filter((t) => t.columnId === col.id)}
+                            tasks={tasksByColumn[col.id] || []}
                         />
                     ))}
                 </SortableContext>
