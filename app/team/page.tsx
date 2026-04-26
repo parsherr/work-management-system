@@ -8,9 +8,9 @@ import { TeamTable } from "@/components/team/team-table"
 import { MemberDialog } from "@/components/team/member-dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { 
-    PlusIcon, 
-    SearchIcon, 
+import {
+    PlusIcon,
+    SearchIcon,
     ChevronDownIcon,
     DownloadIcon,
     FilterIcon
@@ -80,7 +80,7 @@ export default function TeamPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false)
 
     const filteredMembers = useMemo(() => {
-        return members.filter(m => 
+        return members.filter(m =>
             m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             m.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
             m.email.toLowerCase().includes(searchQuery.toLowerCase())
@@ -120,8 +120,8 @@ export default function TeamPage() {
                             <div className="flex items-center gap-2 w-full sm:w-auto">
                                 <div className="relative group w-full sm:w-64">
                                     <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                                    <Input 
-                                        placeholder="Search members..." 
+                                    <Input
+                                        placeholder="Search members..."
                                         value={searchQuery}
                                         onChange={(e) => setSearchQuery(e.target.value)}
                                         className="pl-9 bg-background/40 border-border/40 focus-visible:ring-primary/20 h-9 text-sm rounded-lg"
@@ -139,7 +139,7 @@ export default function TeamPage() {
                                     <DownloadIcon className="size-3.5" />
                                     Export
                                 </Button>
-                                <Button 
+                                <Button
                                     size="sm"
                                     onClick={() => {
                                         setEditingMember(null)
@@ -154,8 +154,8 @@ export default function TeamPage() {
                         </div>
 
                         {/* Professional Data Table */}
-                        <TeamTable 
-                            members={filteredMembers} 
+                        <TeamTable
+                            members={filteredMembers}
                             onEdit={(m) => {
                                 setEditingMember(m)
                                 setIsDialogOpen(true)
@@ -171,7 +171,7 @@ export default function TeamPage() {
                     </div>
                 </main>
 
-                <MemberDialog 
+                <MemberDialog
                     member={editingMember}
                     open={isDialogOpen}
                     onOpenChange={setIsDialogOpen}
